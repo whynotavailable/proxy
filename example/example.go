@@ -2,7 +2,7 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/whynotavailable/proxy/proxy"
+	"github.com/whynotavailable/proxy"
 	"log"
 	"net"
 	"net/http"
