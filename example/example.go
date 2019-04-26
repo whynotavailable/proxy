@@ -9,8 +9,21 @@ import (
 	"strings"
 )
 
+var targetRange *net.IPNet
+
+func getClientIP(r *http.Request) net.IP {
+	return net.ParseIP(r.Header.Get("TrueClient-Ip"))
+}
+
 func middleware(handler func(w http.ResponseWriter, r *http.Request)) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ip := getClientIP(r)
+
+		if !targetRange.Contains(ip) {
+			http.Error(w, "Maintenence", http.StatusServiceUnavailable)
+			return
+		}
+
 		handler(w, r)
 	}
 }
@@ -19,23 +32,21 @@ type userIDMessage struct {
 	UserID string `json:"userId"`
 }
 
+func mainForwarder(req *http.Request) proxy.ForwarderOptions {
+	return proxy.ForwarderOptions{
+		URL: "http://example.com" + strings.Replace(req.URL.RequestURI(), "proxy", "api", 1),
+	}
+}
+
 func main() {
 	// cidr testing
-	target := net.ParseIP("128.0.1.24")
 	_, network, err := net.ParseCIDR("128.0.0.34/24")
 	if err == nil {
-		log.Println(network.Contains(target))
-		log.Println(network.IP.String())
-	} else {
-		log.Println(err.Error())
+		targetRange = network
 	}
 
 	// actual main
-	http.HandleFunc("/proxy/", proxy.Forwarder(func(req *http.Request) proxy.ForwarderOptions {
-		return proxy.ForwarderOptions{
-			URL: strings.Replace(req.URL.RequestURI(), "proxy", "api", 1),
-		}
-	}))
+	http.HandleFunc("/proxy/", middleware(proxy.Forwarder(mainForwarder)))
 
 	http.HandleFunc("/userid", func(w http.ResponseWriter, r *http.Request) {
 		b, _ := json.Marshal(userIDMessage{
