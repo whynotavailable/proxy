@@ -2,11 +2,12 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/whynotavailable/proxy"
 	"log"
 	"net"
 	"net/http"
 	"strings"
+
+	"github.com/whynotavailable/proxy"
 )
 
 func getClientIP(r *http.Request) net.IP {
@@ -37,7 +38,7 @@ type userIDMessage struct {
 
 func mainForwarder(req *http.Request) proxy.ForwarderOptions {
 	return proxy.ForwarderOptions{
-		URL: "http://example.com" + strings.Replace(req.URL.RequestURI(), "proxy", "api", 1),
+		URL: "http://localhost:5000" + strings.Replace(req.URL.RequestURI(), "proxy", "api", 1),
 	}
 }
 
@@ -51,7 +52,11 @@ func userGetter(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	// actual main
-	http.HandleFunc("/proxy/", proxy.Forwarder(mainForwarder))
+	whiteList := []string{
+		"Content-Type",
+	}
+
+	http.HandleFunc("/proxy/", proxy.Forwarder(mainForwarder, whiteList))
 
 	http.HandleFunc("/userid", middleware(userGetter))
 
