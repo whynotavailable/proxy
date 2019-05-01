@@ -5,7 +5,7 @@ import (
 	"net/http"
 )
 
-// ForwarderOptions asd
+// ForwarderOptions construct to manage the forwarder
 type ForwarderOptions struct {
 	URL          string
 	ExtraHeaders map[string]string
