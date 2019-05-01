@@ -43,6 +43,10 @@ func Forwarder(urlGetter func(*http.Request) ForwarderOptions, whitelist []strin
 			}
 		}
 
+		for key, val := range opts.ExtraHeaders {
+			req.Header.Set(key, val)
+		}
+
 		resp, err := client.Do(req)
 
 		if err != nil {

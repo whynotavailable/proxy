@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/whynotavailable/proxy"
 )
@@ -36,9 +37,52 @@ type userIDMessage struct {
 	UserID string `json:"userId"`
 }
 
-func mainForwarder(req *http.Request) proxy.ForwarderOptions {
-	return proxy.ForwarderOptions{
-		URL: "http://localhost:5000" + strings.Replace(req.URL.RequestURI(), "proxy", "api", 1),
+type tokenHandler struct {
+	sync.RWMutex
+	token          string
+	tokenRetriever func() string
+}
+
+func (t *tokenHandler) SetToken(token string) {
+	t.Lock()
+	t.token = token
+	t.Unlock()
+}
+
+func (t *tokenHandler) GetToken() string {
+	var token string
+	t.RLock()
+	if t.token == "" { // condition to get token
+		tgetter := func() { // go off and get token
+			token := t.tokenRetriever()
+			t.SetToken(token)
+		}
+
+		go tgetter()
+	}
+	token = t.token
+	t.RUnlock()
+	return token
+}
+
+func tokenGetter() string {
+	return "my token"
+}
+
+func forwarderWrap() func(*http.Request) proxy.ForwarderOptions {
+	t := tokenHandler{
+		tokenRetriever: tokenGetter,
+	}
+
+	t.SetToken(t.tokenRetriever()) // set initial value
+
+	return func(req *http.Request) proxy.ForwarderOptions {
+		return proxy.ForwarderOptions{
+			URL: "http://localhost:5000" + strings.Replace(req.URL.RequestURI(), "proxy", "api", 1),
+			ExtraHeaders: map[string]string{
+				"token": t.GetToken(),
+			},
+		}
 	}
 }
 
@@ -56,7 +100,7 @@ func main() {
 		"Content-Type",
 	}
 
-	http.HandleFunc("/proxy/", proxy.Forwarder(mainForwarder, whiteList))
+	http.HandleFunc("/proxy/", proxy.Forwarder(forwarderWrap(), whiteList))
 
 	http.HandleFunc("/userid", middleware(userGetter))
 
