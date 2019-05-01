@@ -19,6 +19,7 @@ func Forwarder(urlGetter func(*http.Request) ForwarderOptions, whitelist []strin
 		wl[val] = true
 	}
 
+	// pulled these from https://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html
 	badHeaders := map[string]bool{
 		"Connection":          true,
 		"Keep-Alive":          true,
@@ -30,15 +31,16 @@ func Forwarder(urlGetter func(*http.Request) ForwarderOptions, whitelist []strin
 		"Upgrade":             true,
 	}
 
+	client := http.Client{}
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		opts := urlGetter(r)
-
-		client := http.Client{}
 
 		req, _ := http.NewRequest(r.Method, opts.URL, r.Body)
 
 		for key := range r.Header {
-			if wl[key] {
+			// check the whitelist, if it exists. Also check bad headers
+			if whitelist != nil && wl[key] || !badHeaders[key] {
 				req.Header.Set(key, r.Header.Get(key))
 			}
 		}
@@ -53,6 +55,8 @@ func Forwarder(urlGetter func(*http.Request) ForwarderOptions, whitelist []strin
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+
+		defer resp.Body.Close()
 
 		for key := range resp.Header {
 			if !badHeaders[key] {

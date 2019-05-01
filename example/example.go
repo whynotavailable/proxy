@@ -52,6 +52,9 @@ func (t *tokenHandler) SetToken(token string) {
 func (t *tokenHandler) GetToken() string {
 	var token string
 	t.RLock()
+	token = t.token
+	t.RUnlock()
+
 	if t.token == "" { // condition to get token
 		tgetter := func() { // go off and get token
 			token := t.tokenRetriever()
@@ -60,8 +63,8 @@ func (t *tokenHandler) GetToken() string {
 
 		go tgetter()
 	}
+
 	token = t.token
-	t.RUnlock()
 	return token
 }
 
