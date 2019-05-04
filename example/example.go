@@ -103,6 +103,20 @@ func main() {
 		"Content-Type",
 	}
 
+	mainProxy := proxy.Proxy{}
+	mainProxy.HeaderWhitelist = whiteList
+	mainProxy.Path = "/tester/"
+	mainProxy.Router = func(r *http.Request) (string, error) {
+		return "http://localhost:5000" + strings.Replace(r.URL.RequestURI(), "tester", "api", 1), nil
+	}
+
+	mainProxy.PreRequest = func(inbound, outbound *http.Request) (error, int) {
+		outbound.Header.Set("x-auth", "my value")
+		return nil, 0
+	}
+
+	mainProxy.Register()
+
 	http.HandleFunc("/proxy/", proxy.Forwarder(forwarderWrap(), whiteList))
 
 	http.HandleFunc("/userid", middleware(userGetter))
