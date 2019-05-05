@@ -1,0 +1,17 @@
+[
+    {
+        "Path": "/api/",
+        "TargetHost": "http://localhost:5000",
+        "ReplacementPath": ""
+    },
+    {
+        "Path": "/api/payments/",
+        "TargetHost": "http://localhost:5000",
+        "ReplacementPath": "/api/"
+    },
+    {
+        "Path": "/api/clients/",
+        "TargetHost": "http://localhost:5000",
+        "ReplacementPath": "/api/"
+    }
+]
