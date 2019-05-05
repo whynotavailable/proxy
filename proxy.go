@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 )
 
 // Proxy more structured proxy class
@@ -14,7 +15,11 @@ type Proxy struct {
 	HeaderWhitelist []string
 	PreRequest      func(inbound, outbound *http.Request) (error, int)
 	// This returns the actual URI that the proxy will call
-	Router           func(*http.Request) (string, error)
+	Router func(*http.Request) (string, error)
+	// If this is set, just use the provided host
+	TargetHost string
+	// Will find/replace what's in the Path (only when using TargetHost)
+	ReplacementPath  string
 	UseXForwardedFor bool
 }
 
@@ -23,14 +28,15 @@ func (p *Proxy) Register() {
 	err := p.validateProxy()
 
 	if err != nil {
+		// Consumer configured proxy wrong, die to prevent unexpected errors.
 		log.Fatal(err)
 	}
 
 	// load test this on the stack/heap
-	client := http.Client{}
+	client := &http.Client{}
 
 	// pulled these from https://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html
-	badHeaders := map[string]bool{
+	hopByHopHeaders := map[string]bool{
 		"Connection":          true,
 		"Keep-Alive":          true,
 		"Proxy-Authenticate":  true,
@@ -47,11 +53,22 @@ func (p *Proxy) Register() {
 		whitelist[header] = true
 	}
 
-	proxy := func(w http.ResponseWriter, r *http.Request) {
+	if p.TargetHost != "" {
+		p.Router = func(r *http.Request) (string, error) {
+			uri := r.URL.RequestURI()
+			if p.ReplacementPath != "" {
+				uri = strings.Replace(uri, p.Path, p.ReplacementPath, 1)
+			}
 
+			return p.TargetHost + uri, nil
+		}
+	}
+
+	proxy := func(w http.ResponseWriter, r *http.Request) {
 		uri, err := p.Router(r)
 
 		if err != nil {
+			// if error on router, it's a bad request
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -61,7 +78,7 @@ func (p *Proxy) Register() {
 		if p.HeaderWhitelist != nil {
 			// use the whitelist
 			for key, parts := range r.Header {
-				if whitelist[key] && !badHeaders[key] {
+				if whitelist[key] && !hopByHopHeaders[key] {
 					for _, val := range parts {
 						req.Header.Add(key, val)
 					}
@@ -70,7 +87,7 @@ func (p *Proxy) Register() {
 		} else {
 			// just use the blacklist
 			for key, parts := range r.Header {
-				if !badHeaders[key] {
+				if !hopByHopHeaders[key] {
 					for _, val := range parts {
 						req.Header.Add(key, val)
 					}
@@ -78,15 +95,22 @@ func (p *Proxy) Register() {
 			}
 		}
 
+		clientIP := r.RemoteAddr
+
+		if strings.ContainsRune(clientIP, ':') {
+			clientIP = "\"" + clientIP + "\""
+		}
+
 		if p.UseXForwardedFor {
-			req.Header.Add("X-Forwarded-For", r.RemoteAddr)
+			req.Header.Add("X-Forwarded-For", clientIP)
 		} else {
-			req.Header.Add("Forwarded", fmt.Sprintf("For=\"%s\"", r.RemoteAddr))
+			req.Header.Add("Forwarded", fmt.Sprintf("For=%s", clientIP))
 		}
 
 		if p.PreRequest != nil {
 			err, status := p.PreRequest(r, req)
 			if err != nil {
+				// error in PreRequest means we don't move forward, persist the status from consumer
 				http.Error(w, err.Error(), status)
 			}
 		}
@@ -101,7 +125,7 @@ func (p *Proxy) Register() {
 		defer resp.Body.Close()
 
 		for key, parts := range resp.Header {
-			if !badHeaders[key] {
+			if !hopByHopHeaders[key] {
 				for _, val := range parts {
 					w.Header().Add(key, val)
 				}
@@ -116,9 +140,16 @@ func (p *Proxy) Register() {
 	http.HandleFunc(p.Path, proxy)
 }
 
+// Apply settings from one proxy to another
+func (p *Proxy) Apply(from *Proxy) {
+	p.HeaderWhitelist = from.HeaderWhitelist
+	p.PreRequest = from.PreRequest
+	p.UseXForwardedFor = from.UseXForwardedFor
+}
+
 func (p *Proxy) validateProxy() error {
-	if p.Router == nil {
-		return errors.New("Router not set")
+	if p.Router == nil && p.TargetHost == "" {
+		return errors.New("Router or TargetHost not set")
 	}
 
 	if p.Path == "" {

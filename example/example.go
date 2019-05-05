@@ -107,12 +107,18 @@ func main() {
 		Router: testerRouter,
 	}
 
+	apiProxy := proxy.Proxy{
+		Path:       "/api/",
+		TargetHost: "http://localhost:5000",
+	}
+
 	mainProxy.PreRequest = func(inbound, outbound *http.Request) (error, int) {
 		outbound.Header.Set("x-auth", "my value")
 		return nil, 0
 	}
 
 	mainProxy.Register()
+	apiProxy.Register()
 
 	http.HandleFunc("/proxy/", proxy.Forwarder(forwarderWrap(), nil))
 
