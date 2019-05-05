@@ -58,12 +58,6 @@ func (p *Proxy) Register() {
 
 		req, _ := http.NewRequest(r.Method, uri, r.Body)
 
-		if p.UseXForwardedFor {
-			req.Header.Add("X-Forwarded-For", r.RemoteAddr)
-		} else {
-			req.Header.Add("Forwarded", fmt.Sprintf("For=\"%s\"", r.RemoteAddr))
-		}
-
 		if p.HeaderWhitelist != nil {
 			// use the whitelist
 			for key, parts := range r.Header {
@@ -82,6 +76,12 @@ func (p *Proxy) Register() {
 					}
 				}
 			}
+		}
+
+		if p.UseXForwardedFor {
+			req.Header.Add("X-Forwarded-For", r.RemoteAddr)
+		} else {
+			req.Header.Add("Forwarded", fmt.Sprintf("For=\"%s\"", r.RemoteAddr))
 		}
 
 		if p.PreRequest != nil {
