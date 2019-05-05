@@ -23,13 +23,13 @@ type Proxy struct {
 	UseXForwardedFor bool
 }
 
-// Register the proxy with the http pipeline
-func (p *Proxy) Register() {
+// BuildProxy build the function for the proxy
+func (p *Proxy) BuildProxy() (func(w http.ResponseWriter, r *http.Request), error) {
 	err := p.validateProxy()
 
 	if err != nil {
 		// Consumer configured proxy wrong, die to prevent unexpected errors.
-		log.Fatal(err)
+		return nil, err
 	}
 
 	// load test this on the stack/heap
@@ -64,7 +64,7 @@ func (p *Proxy) Register() {
 		}
 	}
 
-	proxy := func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
 		uri, err := p.Router(r)
 
 		if err != nil {
@@ -136,15 +136,31 @@ func (p *Proxy) Register() {
 		w.WriteHeader(resp.StatusCode)
 
 		io.Copy(w, resp.Body)
+	}, nil
+}
+
+// Register builds and registers proxy
+func (p *Proxy) Register() {
+	pr, err := p.BuildProxy()
+
+	if err != nil {
+		log.Println("validation failed")
+		return
 	}
 
-	http.HandleFunc(p.Path, proxy)
+	http.HandleFunc(p.Path, pr)
 }
 
 // Apply settings from one proxy to another
-func (p *Proxy) Apply(from *Proxy) {
-	p.HeaderWhitelist = from.HeaderWhitelist
-	p.PreRequest = from.PreRequest
+func (p *Proxy) Apply(from Proxy) {
+	if from.HeaderWhitelist != nil {
+		p.HeaderWhitelist = from.HeaderWhitelist
+	}
+
+	if from.PreRequest != nil {
+		p.PreRequest = from.PreRequest
+	}
+
 	p.UseXForwardedFor = from.UseXForwardedFor
 }
 

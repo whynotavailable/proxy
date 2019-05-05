@@ -22,7 +22,7 @@ func main() {
 
 	var proxies []proxy.Proxy
 
-	baseProxy := &proxy.Proxy{
+	baseProxy := proxy.Proxy{
 		PreRequest: func(inbound, outbound *http.Request) (error, int) {
 			client := inbound.Header.Get("client")
 			if client == "" {
@@ -33,8 +33,6 @@ func main() {
 	}
 
 	json.Unmarshal(f, &proxies)
-
-	log.Println(proxies)
 
 	for i := range proxies {
 		proxy := proxies[i]
