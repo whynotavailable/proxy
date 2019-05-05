@@ -112,6 +112,7 @@ func (p *Proxy) Register() {
 			if err != nil {
 				// error in PreRequest means we don't move forward, persist the status from consumer
 				http.Error(w, err.Error(), status)
+				return
 			}
 		}
 
