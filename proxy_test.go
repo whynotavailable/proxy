@@ -1,7 +1,10 @@
 package proxy
 
 import (
+	"encoding/json"
 	"errors"
+	"io/ioutil"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -186,5 +189,37 @@ func ExampleProxy_simple() {
 	}
 	apiProxy.Register()
 
-	//log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", port), nil))
+	http.ListenAndServe(":8080", nil)
+}
+
+// Use a JSON file to control a number of proxies
+func ExampleProxy_gateway() {
+	f, err := ioutil.ReadFile("config.json")
+
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+	var proxies []Proxy
+
+	baseProxy := Proxy{
+		PreRequest: func(inbound, outbound *http.Request) (error, int) {
+			client := inbound.Header.Get("client")
+			if client == "" {
+				return errors.New("not available"), 503
+			}
+			return nil, 0
+		},
+	}
+
+	json.Unmarshal(f, &proxies)
+
+	for i := range proxies {
+		proxy := proxies[i]
+		proxy.Apply(baseProxy)
+		log.Println("Registering proxy at " + proxy.Path)
+		proxy.Register()
+	}
+
+	http.ListenAndServe(":8080", nil)
 }
