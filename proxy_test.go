@@ -182,6 +182,32 @@ func TestProxy_FailedRegistration(t *testing.T) {
 	simpleProxy.Register()
 }
 
+func TestProxy_ValidateRequest(t *testing.T) {
+	simpleProxy := Proxy{
+		Path:       "/api/",
+		TargetHost: "doesn't matter",
+	}
+
+	proxyBase := Proxy{
+		ValidateRequest: func(r *http.Request) (error, int) {
+			return errors.New("Server Updating"), 503
+		},
+	}
+
+	simpleProxy.Apply(proxyBase)
+
+	pFunc, _ := simpleProxy.BuildProxy()
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/", nil)
+
+	pFunc(rr, req)
+
+	if rr.Code != 503 {
+		t.Error("Not return error")
+	}
+}
+
 func ExampleProxy_simple() {
 	apiProxy := Proxy{
 		Path:       "/api/",

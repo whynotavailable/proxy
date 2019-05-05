@@ -11,15 +11,20 @@ import (
 
 // Proxy more structured proxy class
 type Proxy struct {
-	Path            string
+	Path string
+	// These MUST be in canonical format
 	HeaderWhitelist []string
-	PreRequest      func(inbound, outbound *http.Request) (error, int)
+	// just before the request is made
+	PreRequest func(inbound, outbound *http.Request) (error, int)
+	// To validate the incoming request, before any outbound request building happens
+	ValidateRequest func(r *http.Request) (error, int)
 	// This returns the actual URI that the proxy will call
 	Router func(*http.Request) (string, error)
 	// If this is set, just use the provided host
 	TargetHost string
 	// Will find/replace what's in the Path (only when using TargetHost)
-	ReplacementPath  string
+	ReplacementPath string
+	// Use the old X-Forwarded-For header instead of Forwarded
 	UseXForwardedFor bool
 }
 
@@ -65,6 +70,14 @@ func (p *Proxy) BuildProxy() (func(w http.ResponseWriter, r *http.Request), erro
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
+		if p.ValidateRequest != nil {
+			err, code := p.ValidateRequest(r)
+
+			if err != nil {
+				http.Error(w, err.Error(), code)
+			}
+		}
+
 		uri, err := p.Router(r)
 
 		if err != nil {
@@ -159,6 +172,10 @@ func (p *Proxy) Apply(from Proxy) {
 
 	if from.PreRequest != nil {
 		p.PreRequest = from.PreRequest
+	}
+
+	if from.ValidateRequest != nil {
+		p.ValidateRequest = from.ValidateRequest
 	}
 
 	p.UseXForwardedFor = from.UseXForwardedFor
