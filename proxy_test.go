@@ -218,6 +218,34 @@ func ExampleProxy_simple() {
 	http.ListenAndServe(":8080", nil)
 }
 
+func ExampleProxy_router() {
+	const writeHost = "https://read.example.zone"
+	const readHost = "https://write.example.zone"
+
+	methodMap := map[string]string{
+		"GET":    readHost,
+		"PUT":    writeHost,
+		"POST":   writeHost,
+		"DELETE": writeHost,
+		"PATCH":  writeHost,
+	}
+
+	router := func(r *http.Request) (string, error) {
+		if val, ok := methodMap[r.Method]; ok {
+			return val + r.URL.RequestURI(), nil
+		}
+		return "", errors.New("Bad method")
+	}
+
+	apiProxy := Proxy{
+		Path:   "/api/",
+		Router: router,
+	}
+
+	apiProxy.Register()
+	http.ListenAndServe(":8080", nil)
+}
+
 // Use a JSON file to control a number of proxies
 func ExampleProxy_gateway() {
 	f, err := ioutil.ReadFile("config.json")
