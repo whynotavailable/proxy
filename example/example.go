@@ -97,17 +97,14 @@ func userGetter(w http.ResponseWriter, r *http.Request) {
 	w.Write(b)
 }
 
-func main() {
-	// actual main
-	whiteList := []string{
-		"Content-Type",
-	}
+func testerRouter(r *http.Request) (string, error) {
+	return "http://localhost:5000" + strings.Replace(r.URL.RequestURI(), "tester", "api", 1), nil
+}
 
-	mainProxy := proxy.Proxy{}
-	mainProxy.HeaderWhitelist = whiteList
-	mainProxy.Path = "/tester/"
-	mainProxy.Router = func(r *http.Request) (string, error) {
-		return "http://localhost:5000" + strings.Replace(r.URL.RequestURI(), "tester", "api", 1), nil
+func main() {
+	mainProxy := proxy.Proxy{
+		Path:   "/tester/",
+		Router: testerRouter,
 	}
 
 	mainProxy.PreRequest = func(inbound, outbound *http.Request) (error, int) {
@@ -117,7 +114,7 @@ func main() {
 
 	mainProxy.Register()
 
-	http.HandleFunc("/proxy/", proxy.Forwarder(forwarderWrap(), whiteList))
+	http.HandleFunc("/proxy/", proxy.Forwarder(forwarderWrap(), nil))
 
 	http.HandleFunc("/userid", middleware(userGetter))
 

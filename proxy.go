@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -13,7 +14,8 @@ type Proxy struct {
 	HeaderWhitelist []string
 	PreRequest      func(inbound, outbound *http.Request) (error, int)
 	// This returns the actual URI that the proxy will call
-	Router func(*http.Request) (string, error)
+	Router           func(*http.Request) (string, error)
+	UseXForwardedFor bool
 }
 
 // Register the proxy with the http pipeline
@@ -56,18 +58,28 @@ func (p *Proxy) Register() {
 
 		req, _ := http.NewRequest(r.Method, uri, r.Body)
 
+		if p.UseXForwardedFor {
+			req.Header.Add("X-Forwarded-For", r.RemoteAddr)
+		} else {
+			req.Header.Add("Forwarded", fmt.Sprintf("For=\"%s\"", r.RemoteAddr))
+		}
+
 		if p.HeaderWhitelist != nil {
 			// use the whitelist
-			for key := range r.Header {
+			for key, parts := range r.Header {
 				if whitelist[key] && !badHeaders[key] {
-					req.Header.Set(key, r.Header.Get(key))
+					for _, val := range parts {
+						req.Header.Add(key, val)
+					}
 				}
 			}
 		} else {
 			// just use the blacklist
-			for key := range r.Header {
+			for key, parts := range r.Header {
 				if !badHeaders[key] {
-					req.Header.Set(key, r.Header.Get(key))
+					for _, val := range parts {
+						req.Header.Add(key, val)
+					}
 				}
 			}
 		}
@@ -88,9 +100,11 @@ func (p *Proxy) Register() {
 
 		defer resp.Body.Close()
 
-		for key := range resp.Header {
+		for key, parts := range resp.Header {
 			if !badHeaders[key] {
-				w.Header().Set(key, resp.Header.Get(key))
+				for _, val := range parts {
+					w.Header().Add(key, val)
+				}
 			}
 		}
 
