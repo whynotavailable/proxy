@@ -20,6 +20,7 @@ func TestProxy_Minimal(t *testing.T) {
 		Path:       "/api/",
 		TargetHost: server.URL,
 	}
+
 	pFunc, _ := simpleProxy.BuildProxy()
 
 	rr := httptest.NewRecorder()
