@@ -29,7 +29,7 @@ type Proxy struct {
 }
 
 // BuildProxy build the function for the proxy
-func (p *Proxy) BuildProxy() (func(w http.ResponseWriter, r *http.Request), error) {
+func (p *Proxy) BuildProxy(c *http.Client) (func(w http.ResponseWriter, r *http.Request), error) {
 	err := p.validateProxy()
 
 	if err != nil {
@@ -38,7 +38,10 @@ func (p *Proxy) BuildProxy() (func(w http.ResponseWriter, r *http.Request), erro
 	}
 
 	// load test this on the stack/heap
-	client := &http.Client{}
+	client := c
+	if client == nil {
+		client = &http.Client{}
+	}
 
 	// pulled these from https://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html
 	hopByHopHeaders := map[string]bool{
@@ -154,7 +157,7 @@ func (p *Proxy) BuildProxy() (func(w http.ResponseWriter, r *http.Request), erro
 
 // Register builds and registers proxy
 func (p *Proxy) Register() {
-	pr, err := p.BuildProxy()
+	pr, err := p.BuildProxy(nil)
 
 	if err != nil {
 		log.Println("validation failed")

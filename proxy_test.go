@@ -21,7 +21,7 @@ func TestProxy_Minimal(t *testing.T) {
 		TargetHost: server.URL,
 	}
 
-	pFunc, _ := simpleProxy.BuildProxy()
+	pFunc, _ := simpleProxy.BuildProxy(nil)
 
 	rr := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/", nil)
@@ -66,7 +66,7 @@ func TestProxy_Whitelist(t *testing.T) {
 
 	t.Log(simpleProxy.HeaderWhitelist)
 
-	pFunc, _ := simpleProxy.BuildProxy()
+	pFunc, _ := simpleProxy.BuildProxy(nil)
 
 	rr := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/", nil)
@@ -79,7 +79,7 @@ func TestProxy_Whitelist(t *testing.T) {
 
 func TestProxy_Validation(t *testing.T) {
 	simpleProxy := Proxy{}
-	_, err := simpleProxy.BuildProxy()
+	_, err := simpleProxy.BuildProxy(nil)
 
 	if err == nil {
 		t.Error("validation failure not caught")
@@ -87,7 +87,7 @@ func TestProxy_Validation(t *testing.T) {
 
 	simpleProxy.TargetHost = "whatever"
 
-	_, err = simpleProxy.BuildProxy()
+	_, err = simpleProxy.BuildProxy(nil)
 
 	if err == nil {
 		t.Error("validation failure not caught")
@@ -95,7 +95,7 @@ func TestProxy_Validation(t *testing.T) {
 
 	simpleProxy.Path = "a path"
 
-	_, err = simpleProxy.BuildProxy()
+	_, err = simpleProxy.BuildProxy(nil)
 
 	if err != nil {
 		t.Error("validation failed when should pass")
@@ -121,7 +121,7 @@ func TestProxy_ExtraSettings(t *testing.T) {
 
 	simpleProxy.Apply(baseProxy)
 
-	pFunc, _ := simpleProxy.BuildProxy()
+	pFunc, _ := simpleProxy.BuildProxy(nil)
 
 	rr := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/payments/", nil)
@@ -139,7 +139,7 @@ func TestProxy_ClientError(t *testing.T) {
 		Path:       "/api/",
 		TargetHost: "hate://go", // fake to trigger client error
 	}
-	pFunc, _ := simpleProxy.BuildProxy()
+	pFunc, _ := simpleProxy.BuildProxy(nil)
 
 	rr := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/", nil)
@@ -158,7 +158,7 @@ func TestProxy_RouterError(t *testing.T) {
 			return "", errors.New("Bad route")
 		},
 	}
-	pFunc, _ := simpleProxy.BuildProxy()
+	pFunc, _ := simpleProxy.BuildProxy(nil)
 
 	rr := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/", nil)
@@ -197,7 +197,7 @@ func TestProxy_ValidateRequest(t *testing.T) {
 
 	simpleProxy.Apply(proxyBase)
 
-	pFunc, _ := simpleProxy.BuildProxy()
+	pFunc, _ := simpleProxy.BuildProxy(nil)
 
 	rr := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/", nil)
