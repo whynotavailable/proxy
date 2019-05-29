@@ -9,7 +9,7 @@ import (
 )
 
 // StaticFileHoster mimics static file hoster from NPM
-func staticFileHoster(root, rootFile string) func(http.ResponseWriter, *http.Request) {
+func StaticFileHoster(root, rootFile string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 		if path == "/" && rootFile != "" {
